@@ -42,32 +42,39 @@ def get_products(db:Session=Depends(get_db)):
     return products
 
 @app.get("/products/{product_id}")
-def get_product_by_id(product_id: int):
-    db=session()
-    product=db.query(Product).filter(Product.id == product_id).first()
+def get_product_by_id(product_id: int, db:Session=Depends(get_db)):
+    
+    product=db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
     db.close()
     if product:
         return product
     return {"message": "Product not found"}
 
 @app.post("/products")
-def create_product(product: Product):
-    Products.append(product)
-    return product
+def create_product(product: Product, db:Session=Depends(get_db)):
+    db_product = database_models.Product(**product.model_dump())
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+    return db_product
 
 @app.put("/products/{product_id}")
-def update_product(product_id: int, updated_product: Product):
-    for index, product in enumerate(Products):
-        if product.id == product_id:
-            Products[index] = updated_product
-            return updated_product
-    return {"message": "Product not found"}
+def update_product(product_id: int, updated_product: Product, db:Session=Depends(get_db)):
+    product=db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
+    if not product:
+        return {"message": "Product not found"}
+    for key, value in updated_product.model_dump().items():
+        setattr(product, key, value)
+    db.commit()
+    db.refresh(product)
+    return product
 
 
 @app.delete("/products/{product_id}")
-def delete_product(product_id: int):
-    for index, product in enumerate(Products):
-        if product.id == product_id:
-            del Products[index]
-            return {"message": "Product deleted"}
-    return {"message": "Product not found"} 
+def delete_product(product_id: int, db:Session=Depends(get_db)):
+    product=db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
+    if not product:
+        return {"message": "Product not found"}
+    db.delete(product)
+    db.commit()
+    return {"message": "Product deleted"} 
